@@ -1,6 +1,5 @@
 import React, { useState, useRef } from 'react';
 import { StyleSheet, View, TouchableOpacity, Text, Animated, Platform } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { Feather } from '@expo/vector-icons';
 
 export default function FloatingNavBar({ activeTab, onTabChange }) {
@@ -58,7 +57,7 @@ export default function FloatingNavBar({ activeTab, onTabChange }) {
       <View style={styles.navBarWrapper}>
         {/* iOS Liquid Glass Effect */}
         {Platform.OS === 'ios' ? (
-          <BlurView intensity={80} tint="light" style={styles.navBar}>
+          <View style={[styles.navBar, styles.iosNavBar]}>
             <View style={styles.glassOverlay} />
             <View style={styles.navContent}>
               {/* Discover Tab */}
@@ -88,7 +87,7 @@ export default function FloatingNavBar({ activeTab, onTabChange }) {
                 </TouchableOpacity>
               </Animated.View>
             </View>
-          </BlurView>
+          </View>
         ) : (
           <View style={[styles.navBar, styles.androidNavBar]}>
             <View style={styles.glassBackground} />
@@ -152,6 +151,11 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 30,
     overflow: 'hidden',
+  },
+  iosNavBar: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.4)'
   },
   androidNavBar: {
     backgroundColor: 'rgba(28, 28, 28, 0.95)',
