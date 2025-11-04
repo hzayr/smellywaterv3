@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { StyleSheet, View, TouchableOpacity, Text, Animated, Platform } from 'react-native';
 import { BlurView } from 'expo-blur';
+import { Feather } from '@expo/vector-icons';
 
 export default function FloatingNavBar({ activeTab, onTabChange }) {
   const discoverAnimation = useRef(new Animated.Value(activeTab === 'discover' ? 1 : 0)).current;
@@ -57,107 +58,64 @@ export default function FloatingNavBar({ activeTab, onTabChange }) {
       <View style={styles.navBarWrapper}>
         {/* iOS Liquid Glass Effect */}
         {Platform.OS === 'ios' ? (
-          <BlurView intensity={80} tint="dark" style={styles.navBar}>
+          <BlurView intensity={80} tint="light" style={styles.navBar}>
             <View style={styles.glassOverlay} />
             <View style={styles.navContent}>
               {/* Discover Tab */}
-              <Animated.View style={[styles.tabWrapper, { width: discoverWidth }]}>
+              <Animated.View style={[styles.tabWrapper, { width: discoverWidth }]}> 
                 <TouchableOpacity
-                  style={[
-                    styles.tab,
-                    activeTab === 'discover' && styles.activeTab,
-                  ]}
+                  style={[styles.tab, activeTab === 'discover' && styles.activeTab]}
                   onPress={() => handleTabPress('discover')}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.icon}>🌍</Text>
+                  <Feather name="globe" size={22} color={activeTab === 'discover' ? '#222' : '#fff'} />
                   {activeTab === 'discover' && (
-                    <Animated.Text 
-                      style={[
-                        styles.tabText,
-                        { opacity: discoverAnimation }
-                      ]}
-                    >
-                      Discover
-                    </Animated.Text>
+                    <Animated.Text style={[styles.tabText, { opacity: discoverAnimation, color: '#222' }]}>Discover</Animated.Text>
                   )}
                 </TouchableOpacity>
               </Animated.View>
-
               {/* Profile Tab */}
-              <Animated.View style={[styles.tabWrapper, { width: profileWidth }]}>
+              <Animated.View style={[styles.tabWrapper, { width: profileWidth }]}> 
                 <TouchableOpacity
-                  style={[
-                    styles.tab,
-                    activeTab === 'profile' && styles.activeTab,
-                  ]}
+                  style={[styles.tab, activeTab === 'profile' && styles.activeTab]}
                   onPress={() => handleTabPress('profile')}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.icon}>👤</Text>
+                  <Feather name="user" size={22} color={activeTab === 'profile' ? '#222' : '#fff'} />
                   {activeTab === 'profile' && (
-                    <Animated.Text 
-                      style={[
-                        styles.tabText,
-                        { opacity: profileAnimation }
-                      ]}
-                    >
-                      Profile
-                    </Animated.Text>
+                    <Animated.Text style={[styles.tabText, { opacity: profileAnimation, color: '#222' }]}>Profile</Animated.Text>
                   )}
                 </TouchableOpacity>
               </Animated.View>
             </View>
           </BlurView>
         ) : (
-          // Android fallback
           <View style={[styles.navBar, styles.androidNavBar]}>
             <View style={styles.glassBackground} />
             <View style={styles.navContent}>
               {/* Discover Tab */}
-              <Animated.View style={[styles.tabWrapper, { width: discoverWidth }]}>
+              <Animated.View style={[styles.tabWrapper, { width: discoverWidth }]}> 
                 <TouchableOpacity
-                  style={[
-                    styles.tab,
-                    activeTab === 'discover' && styles.activeTab,
-                  ]}
+                  style={[styles.tab, activeTab === 'discover' && styles.activeTab]}
                   onPress={() => handleTabPress('discover')}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.icon}>🌍</Text>
+                  <Feather name="globe" size={22} color={activeTab === 'discover' ? '#222' : '#fff'} />
                   {activeTab === 'discover' && (
-                    <Animated.Text 
-                      style={[
-                        styles.tabText,
-                        { opacity: discoverAnimation }
-                      ]}
-                    >
-                      Discover
-                    </Animated.Text>
+                    <Animated.Text style={[styles.tabText, { opacity: discoverAnimation, color: '#222' }]}>Discover</Animated.Text>
                   )}
                 </TouchableOpacity>
               </Animated.View>
-
               {/* Profile Tab */}
-              <Animated.View style={[styles.tabWrapper, { width: profileWidth }]}>
+              <Animated.View style={[styles.tabWrapper, { width: profileWidth }]}> 
                 <TouchableOpacity
-                  style={[
-                    styles.tab,
-                    activeTab === 'profile' && styles.activeTab,
-                  ]}
+                  style={[styles.tab, activeTab === 'profile' && styles.activeTab]}
                   onPress={() => handleTabPress('profile')}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.icon}>👤</Text>
+                  <Feather name="user" size={22} color={activeTab === 'profile' ? '#222' : '#fff'} />
                   {activeTab === 'profile' && (
-                    <Animated.Text 
-                      style={[
-                        styles.tabText,
-                        { opacity: profileAnimation }
-                      ]}
-                    >
-                      Profile
-                    </Animated.Text>
+                    <Animated.Text style={[styles.tabText, { opacity: profileAnimation, color: '#222' }]}>Profile</Animated.Text>
                   )}
                 </TouchableOpacity>
               </Animated.View>
@@ -237,13 +195,10 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   activeTab: {
-    backgroundColor: '#FF6A33',
-    shadowColor: '#FF6A33',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.4,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    shadowColor: '#fff',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 5,
   },

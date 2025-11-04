@@ -9,10 +9,7 @@ export default function App() {
 
   return (
     <View style={styles.container}>
-      {/* Render active screen */}
       {activeTab === 'discover' ? <SearchScreen /> : <ProfileScreen />}
-      
-      {/* Floating Navigation Bar */}
       <FloatingNavBar activeTab={activeTab} onTabChange={setActiveTab} />
     </View>
   );
