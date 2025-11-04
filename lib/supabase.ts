@@ -274,6 +274,48 @@ export const getPerfumes = async (): Promise<Perfume[]> => {
   }
 };
 
+// Fetch a random slice of perfumes without requiring a SQL function
+// Strategy: get total count, pick a random start, and select a window of `limit` rows
+export const getRandomPerfumes = async (limit = 10): Promise<Perfume[]> => {
+  try {
+    // Get total rows to compute a safe random offset
+    const { count, error: countError } = await supabase
+      .from('perfumes')
+      .select('*', { count: 'exact', head: true });
+
+    if (countError) {
+      console.error('Error getting perfumes count:', countError);
+      return [];
+    }
+
+    const total = count || 0;
+    if (total === 0) return [];
+
+    const safeLimit = Math.max(1, Math.min(limit, 50));
+    const maxStart = Math.max(0, total - safeLimit);
+    const start = maxStart > 0 ? Math.floor(Math.random() * (maxStart + 1)) : 0;
+    const end = start + safeLimit - 1;
+
+    console.log(`Fetching random perfumes slice: start=${start}, end=${end}, total=${total}`);
+
+    const { data, error } = await supabase
+      .from('perfumes')
+      .select('*')
+      .order('id')
+      .range(start, end);
+
+    if (error) {
+      console.error('Error fetching random perfumes:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error in getRandomPerfumes:', error);
+    return [];
+  }
+};
+
 export const searchPerfumes = async (query: string): Promise<Perfume[]> => {
   try {
     console.log('Searching database for:', query);

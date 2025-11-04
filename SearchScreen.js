@@ -1,49 +1,131 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, FlatList, TouchableOpacity } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { StyleSheet, Text, View, FlatList, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { Image } from 'expo-image';
+import { getRandomPerfumes, searchPerfumes } from './lib/supabase';
 
 export default function SearchScreen() {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [perfumes, setPerfumes] = useState([]);
   const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searching, setSearching] = useState(false);
+  const debounceRef = useRef(null);
 
-  const handleSearch = () => {
-    // Placeholder search - will be connected to Supabase later
-    console.log('Searching for:', searchQuery);
+  const loadRandom = useCallback(async () => {
+    try {
+      setError('');
+      const data = await getRandomPerfumes(10);
+      setPerfumes(data);
+    } catch (e) {
+      console.error('Failed to load random perfumes', e);
+      setError('Could not load perfumes. Pull to refresh to try again.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadRandom();
+  }, [loadRandom]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadRandom();
+  }, [loadRandom]);
+
+  const performSearch = useCallback(async (query) => {
+    if (!query || !query.trim()) {
+      setResults([]);
+      setSearching(false);
+      return;
+    }
+    try {
+      setSearching(true);
+      const data = await searchPerfumes(query.trim());
+      setResults(data);
+    } catch (e) {
+      console.error('Search error', e);
+    } finally {
+      setSearching(false);
+    }
+  }, []);
+
+  const onChangeSearch = (text) => {
+    setSearchQuery(text);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => performSearch(text), 300);
   };
+
+  const renderItem = ({ item }) => (
+    <TouchableOpacity activeOpacity={0.8} style={styles.card}>
+      <View style={styles.imageWrap}>
+        <Image
+          source={{ uri: item?.image_url || 'https://via.placeholder.com/200x260/EEEEEE/AAAAAA?text=No+Image' }}
+          style={styles.image}
+          contentFit="contain"
+          transition={150}
+        />
+      </View>
+      <View style={styles.cardBody}>
+        <Text style={styles.name} numberOfLines={2}>{item?.Name || 'Unknown'}</Text>
+        {!!item?.Brand && (
+          <Text style={styles.brand} numberOfLines={1}>{item.Brand}</Text>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
 
   return (
     <View style={styles.container}>
       <StatusBar style="auto" />
-      
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Search Fragrances</Text>
-      </View>
 
       {/* Search Bar */}
-      <View style={styles.searchContainer}>
+      <View style={styles.searchBarWrap}>
         <TextInput
-          style={styles.searchInput}
-          placeholder="Search for perfumes..."
+          placeholder="Search perfumes by name..."
+          placeholderTextColor="#6b7280"
           value={searchQuery}
-          onChangeText={setSearchQuery}
-          onSubmitEditing={handleSearch}
+          onChangeText={onChangeSearch}
+          onSubmitEditing={() => performSearch(searchQuery)}
           autoCorrect={false}
+          style={styles.searchInput}
+          returnKeyType="search"
         />
-      </View>
-
-      {/* Results */}
-      <View style={styles.resultsContainer}>
-        {searchQuery ? (
-          <Text style={styles.placeholderText}>
-            No results yet. Database connection pending...
-          </Text>
-        ) : (
-          <Text style={styles.placeholderText}>
-            Start typing to search for fragrances
-          </Text>
+        {!!searchQuery && (
+          <TouchableOpacity onPress={() => { setSearchQuery(''); setResults([]); }} style={styles.clearBtn}>
+            <Text style={styles.clearText}>Clear</Text>
+          </TouchableOpacity>
         )}
       </View>
+
+      {/* Content */}
+      {loading && !searchQuery ? (
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator size="large" color="#0a7ea4" />
+          <Text style={styles.loadingText}>Fetching perfumes…</Text>
+        </View>
+      ) : (!searchQuery && perfumes.length === 0) ? (
+        <View style={styles.emptyWrap}>
+          <Text style={styles.placeholderText}>No perfumes available.</Text>
+          {!!error && <Text style={styles.errorText}>{error}</Text>}
+        </View>
+      ) : (
+        <FlatList
+          data={searchQuery ? results : perfumes}
+          keyExtractor={(item) => String(item.id)}
+          renderItem={renderItem}
+          numColumns={2}
+          contentContainerStyle={styles.listContent}
+          columnWrapperStyle={styles.row}
+          refreshing={searchQuery ? searching : refreshing}
+          onRefresh={searchQuery ? () => performSearch(searchQuery) : onRefresh}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
     </View>
   );
 }
@@ -56,35 +138,107 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 8,
   },
   headerTitle: {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#11181C',
   },
-  searchContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
+  searchBarWrap: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   searchInput: {
-    height: 50,
-    backgroundColor: '#F2F2F7',
+    flex: 1,
+    height: 44,
+    backgroundColor: '#F2F4F7',
     borderRadius: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     fontSize: 16,
     borderWidth: 1,
-    borderColor: '#0a7ea4',
+    borderColor: '#E5E7EB',
+    color: '#11181C',
   },
-  resultsContainer: {
+  clearBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  clearText: {
+    color: '#0a7ea4',
+    fontWeight: '600',
+  },
+  loadingWrap: {
     flex: 1,
-    paddingHorizontal: 20,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 8,
+    color: '#6b7280',
+  },
+  emptyWrap: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  errorText: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#dc2626',
+    textAlign: 'center',
   },
   placeholderText: {
     fontSize: 16,
     color: '#8E8E93',
     textAlign: 'center',
+  },
+  listContent: {
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 24,
+  },
+  row: {
+    justifyContent: 'space-between',
+  },
+  card: {
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    marginBottom: 16,
+    width: '48%',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#eef2f7',
+  },
+  imageWrap: {
+    backgroundColor: '#F8F8FA',
+    height: 180,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  image: {
+    width: '85%',
+    height: '85%',
+  },
+  cardBody: {
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  name: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1f2937',
+    textAlign: 'center',
+  },
+  brand: {
+    marginTop: 2,
+    fontSize: 12,
+    color: '#6b7280',
   },
 });
