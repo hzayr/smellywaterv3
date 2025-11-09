@@ -7,7 +7,7 @@ import { supabase, getUserCollections, createCollection } from './lib/supabase';
 // This screen now handles sign in / sign up using Supabase email/password auth.
 // If the user is authenticated, show a simple profile summary and sign out button.
 
-export default function ProfileScreen() {
+export default function ProfileScreen({ onSelectCollection }) {
   const [user, setUser] = useState(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -267,8 +267,9 @@ export default function ProfileScreen() {
                 style={styles.collectionCard}
                 activeOpacity={0.8}
                 onPress={() => {
-                  Alert.alert('Collection', `You tapped on ${collection.name}`);
-                  // TODO: Navigate to collection details
+                  if (onSelectCollection) {
+                    onSelectCollection(collection);
+                  }
                 }}
               >
                 <View style={styles.collectionImageContainer}>
