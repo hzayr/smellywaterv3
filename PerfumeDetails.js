@@ -23,11 +23,12 @@ export default function PerfumeDetails({ perfumeId, onBack }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   const loadPerfume = useCallback(async () => {
-    if (typeof perfumeId !== 'number') return;
+    const id = Number(perfumeId);
+    if (!id) return;
     try {
       setLoading(true);
       setError('');
-      const data = await getPerfumeById(perfumeId);
+      const data = await getPerfumeById(id);
       if (!data) {
         setError('Perfume not found.');
       }
