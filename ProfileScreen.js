@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert, TextInput, KeyboardAvoidingView, Platform, Modal } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
-import { supabase, getUserCollections, createCollection } from './lib/supabase';
+import { supabase, getUserCollections, createCollection, updateCollection, deleteCollection } from './lib/supabase';
 
 // This screen now handles sign in / sign up using Supabase email/password auth.
 // If the user is authenticated, show a simple profile summary and sign out button.
@@ -17,6 +17,11 @@ export default function ProfileScreen({ onSelectCollection }) {
   const [showNewCollectionModal, setShowNewCollectionModal] = useState(false);
   const [newCollectionName, setNewCollectionName] = useState('');
   const [newCollectionDescription, setNewCollectionDescription] = useState('');
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [showEditCollectionModal, setShowEditCollectionModal] = useState(false);
+  const [editingCollection, setEditingCollection] = useState(null);
+  const [editCollectionName, setEditCollectionName] = useState('');
+  const [editCollectionDescription, setEditCollectionDescription] = useState('');
 
   const loadUserCollections = useCallback(async (userId) => {
     try {
@@ -101,12 +106,25 @@ export default function ProfileScreen({ onSelectCollection }) {
   };
 
   const handleSignOut = async () => {
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) Alert.alert('Error', error.message);
-    } catch (e) {
-      Alert.alert('Error', 'Something went wrong');
-    }
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error } = await supabase.auth.signOut();
+              if (error) Alert.alert('Error', error.message);
+            } catch (e) {
+              Alert.alert('Error', 'Something went wrong');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleCreateCollection = async () => {
@@ -136,6 +154,78 @@ export default function ProfileScreen({ onSelectCollection }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleEditCollectionClick = (collection) => {
+    setEditingCollection(collection);
+    setEditCollectionName(collection.name);
+    setEditCollectionDescription(collection.description || '');
+    setShowEditCollectionModal(true);
+  };
+
+  const handleUpdateCollection = async () => {
+    if (!editingCollection || !editCollectionName.trim()) {
+      Alert.alert('Error', 'Please enter a collection name');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await updateCollection(editingCollection.id, {
+        name: editCollectionName.trim(),
+        description: editCollectionDescription.trim() || null,
+      });
+
+      // Refresh collections
+      await loadUserCollections(user.id);
+      
+      setShowEditCollectionModal(false);
+      setEditingCollection(null);
+      setEditCollectionName('');
+      setEditCollectionDescription('');
+      Alert.alert('Success', 'Collection updated successfully');
+    } catch (error) {
+      console.error('Error updating collection:', error);
+      Alert.alert('Error', 'Failed to update collection');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteCollection = async () => {
+    if (!editingCollection) return;
+
+    Alert.alert(
+      'Delete Collection',
+      `Are you sure you want to delete "${editingCollection.name}"? This action cannot be undone and will remove all items from this collection.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              await deleteCollection(editingCollection.id);
+              
+              // Refresh collections
+              await loadUserCollections(user.id);
+              
+              setShowEditCollectionModal(false);
+              setEditingCollection(null);
+              setEditCollectionName('');
+              setEditCollectionDescription('');
+              Alert.alert('Success', 'Collection deleted successfully');
+            } catch (error) {
+              console.error('Error deleting collection:', error);
+              Alert.alert('Error', 'Failed to delete collection');
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   if (loading) {
@@ -240,6 +330,7 @@ export default function ProfileScreen({ onSelectCollection }) {
         <TouchableOpacity 
           style={styles.profileAvatarContainer}
           activeOpacity={0.7}
+          onPress={handleSignOut}
         >
           <View style={styles.profileAvatar}>
             <Text style={styles.profileAvatarText}>
@@ -249,29 +340,48 @@ export default function ProfileScreen({ onSelectCollection }) {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Collections</Text>
         <TouchableOpacity 
-          style={styles.signOutButton}
-          onPress={handleSignOut}
+          style={styles.editButton}
+          onPress={() => setIsEditMode(!isEditMode)}
           activeOpacity={0.7}
         >
-          <Text style={styles.signOutText}>Sign Out</Text>
+          <Text style={[styles.editText, { color: isEditMode ? '#FF3B30' : '#007AFF' }]}>
+            {isEditMode ? 'Done' : 'Edit'}
+          </Text>
         </TouchableOpacity>
       </View>
       
       <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+        {isEditMode && (
+          <View style={styles.editModeNotice}>
+            <Text style={styles.editModeNoticeText}>
+              Tap a collection to edit or delete it
+            </Text>
+          </View>
+        )}
         {/* Collections Grid */}
         <View style={styles.collectionsContainer}>
           <View style={styles.collectionsGrid}>
             {collections.map((collection) => (
               <TouchableOpacity 
                 key={collection.id}
-                style={styles.collectionCard}
+                style={[
+                  styles.collectionCard,
+                  isEditMode && styles.collectionCardEditMode
+                ]}
                 activeOpacity={0.8}
                 onPress={() => {
-                  if (onSelectCollection) {
+                  if (isEditMode && !collection.is_default) {
+                    handleEditCollectionClick(collection);
+                  } else if (!isEditMode && onSelectCollection) {
                     onSelectCollection(collection);
                   }
                 }}
               >
+                {isEditMode && !collection.is_default && (
+                  <View style={styles.editOverlay}>
+                    <Text style={styles.editIcon}>✏️</Text>
+                  </View>
+                )}
                 <View style={styles.collectionImageContainer}>
                   {collection.sample_images && collection.sample_images.length > 0 ? (
                     <View style={styles.imageGrid}>
@@ -308,16 +418,18 @@ export default function ProfileScreen({ onSelectCollection }) {
             ))}
             
             {/* Add New Collection Card */}
-            <TouchableOpacity 
-              style={[styles.collectionCard, styles.addCollectionCard]}
-              activeOpacity={0.8}
-              onPress={() => setShowNewCollectionModal(true)}
-            >
-              <View style={styles.addCollectionContent}>
-                <Text style={styles.addCollectionIcon}>➕</Text>
-                <Text style={styles.addCollectionText}>Create Collection</Text>
-              </View>
-            </TouchableOpacity>
+            {!isEditMode && (
+              <TouchableOpacity 
+                style={[styles.collectionCard, styles.addCollectionCard]}
+                activeOpacity={0.8}
+                onPress={() => setShowNewCollectionModal(true)}
+              >
+                <View style={styles.addCollectionContent}>
+                  <Text style={styles.addCollectionIcon}>➕</Text>
+                  <Text style={styles.addCollectionText}>Create Collection</Text>
+                </View>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </ScrollView>
@@ -386,6 +498,80 @@ export default function ProfileScreen({ onSelectCollection }) {
           </View>
         </View>
       </Modal>
+
+      {/* Edit Collection Modal */}
+      <Modal
+        visible={showEditCollectionModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowEditCollectionModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Edit Collection</Text>
+            <TouchableOpacity 
+              style={styles.closeButton}
+              onPress={() => {
+                setShowEditCollectionModal(false);
+                setEditingCollection(null);
+                setEditCollectionName('');
+                setEditCollectionDescription('');
+              }}
+            >
+              <Text style={styles.closeButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.modalContent}>
+            <View style={styles.modalFieldContainer}>
+              <Text style={styles.modalFieldLabel}>Collection Name</Text>
+              <TextInput
+                style={styles.modalEditInput}
+                value={editCollectionName}
+                onChangeText={setEditCollectionName}
+                placeholder="Enter collection name"
+                placeholderTextColor="#8E8E93"
+                autoFocus
+              />
+            </View>
+
+            <View style={styles.modalFieldContainer}>
+              <Text style={styles.modalFieldLabel}>Description (Optional)</Text>
+              <TextInput
+                style={[styles.modalEditInput, styles.modalTextArea]}
+                value={editCollectionDescription}
+                onChangeText={setEditCollectionDescription}
+                placeholder="Describe your collection..."
+                placeholderTextColor="#8E8E93"
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+              />
+            </View>
+
+            <TouchableOpacity 
+              style={[
+                styles.authButton,
+                (!editCollectionName.trim() || loading) && styles.disabledBtn
+              ]}
+              onPress={handleUpdateCollection}
+              disabled={!editCollectionName.trim() || loading}
+            >
+              <Text style={styles.authButtonText}>
+                {loading ? 'Updating...' : 'Update Collection'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.deleteCollectionButton}
+              onPress={handleDeleteCollection}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.deleteCollectionText}>🗑️ Delete Collection</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -434,19 +620,32 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#fff',
   },
-  signOutButton: {
+  editButton: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: '#FF6A33',
-    borderRadius: 6,
   },
-  signOutText: {
-    color: '#fff',
-    fontSize: 12,
+  editText: {
+    fontSize: 16,
     fontWeight: '600',
   },
   scrollContainer: {
     flex: 1,
+  },
+  editModeNotice: {
+    backgroundColor: '#FFF3CD',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    marginHorizontal: 20,
+    marginTop: 12,
+    marginBottom: 8,
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FFC107',
+  },
+  editModeNoticeText: {
+    fontSize: 14,
+    color: '#856404',
+    textAlign: 'center',
   },
   // Collections grid
   collectionsContainer: {
@@ -473,6 +672,33 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+    position: 'relative',
+  },
+  collectionCardEditMode: {
+    opacity: 0.8,
+  },
+  editOverlay: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#007AFF',
+    borderRadius: 16,
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 5,
+  },
+  editIcon: {
+    fontSize: 16,
   },
   addCollectionCard: {
     borderWidth: 2,
@@ -718,5 +944,19 @@ const styles = StyleSheet.create({
   modalTextArea: {
     height: 80,
     textAlignVertical: 'top',
+  },
+  deleteCollectionButton: {
+    marginTop: 32,
+    backgroundColor: '#FF3B30',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteCollectionText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

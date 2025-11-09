@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Modal, StyleSheet, TextInput, TouchableOpacity, View, Text } from 'react-native';
+import { ActivityIndicator, Alert, Animated, FlatList, Modal, StyleSheet, TextInput, TouchableOpacity, View, Text } from 'react-native';
 import { Image } from 'expo-image';
-import { getCollection, getCollectionItems, removePerfumeFromCollection, updateCollection } from './lib/supabase';
+import { getCollection, getCollectionItems, removePerfumeFromCollection, updateCollection, deleteCollection } from './lib/supabase';
+import { Swipeable } from 'react-native-gesture-handler';
 
 export default function CollectionDetails({ collectionId, collectionName, onBack, onSelectPerfume }) {
   const [items, setItems] = useState([]);
@@ -126,58 +127,153 @@ export default function CollectionDetails({ collectionId, collectionName, onBack
     }
   };
 
+  const handleDeleteCollection = async () => {
+    Alert.alert(
+      'Delete Collection',
+      `Are you sure you want to delete "${collection?.name || collectionName}"? This action cannot be undone and will remove all items from this collection.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteCollection(collectionId);
+              setIsEditingCollection(false);
+              Alert.alert('Success', 'Collection deleted successfully', [
+                { text: 'OK', onPress: onBack }
+              ]);
+            } catch (error) {
+              console.error('Error deleting collection:', error);
+              Alert.alert('Error', 'Failed to delete collection. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleEditCollection = () => {
     setEditedCollectionName(collection?.name || collectionName || '');
     setEditedCollectionDescription(collection?.description || '');
     setIsEditingCollection(true);
   };
 
+  const handleRemovePerfume = async (itemId) => {
+    try {
+        await removePerfumeFromCollection(itemId);
+        setItems((prevItems) => prevItems.filter(item => item.id !== itemId));
+        Alert.alert('Success', 'Fragrance removed from collection');
+    } catch (error) {
+        console.error('Error removing perfume:', error);
+        Alert.alert('Error', 'Failed to remove perfume. Please try again.');
+    }
+  };
+
+  const renderRightActions = (itemId) => (progress, dragX) => {
+    const translateX = dragX.interpolate({
+        inputRange: [-100, 0],
+        outputRange: [0, 100],
+        extrapolate: 'clamp',
+    });
+
+    return (
+        <View style={styles.deleteButtonContainer}>
+            <Animated.View style={[styles.deleteButton, { transform: [{ translateX }] }]}>
+                <TouchableOpacity 
+                  style={styles.deleteButtonTouchable}
+                  onPress={() => handleRemovePerfume(itemId)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.deleteButtonText}>Delete</Text>
+                </TouchableOpacity>
+            </Animated.View>
+        </View>
+    );
+};
+
   const renderPerfumeCard = ({ item }) => {
     const isSelected = selectedItems.has(item.id);
     
+    // Don't show swipeable in modify mode
+    if (isModifyMode) {
+      return (
+        <TouchableOpacity 
+          style={[
+            styles.perfumeCard,
+            isSelected && styles.selectedCard
+          ]}
+          onPress={() => toggleItemSelection(item.id)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.cardContent}>
+            <View style={styles.imageContainer}>
+              <Image
+                source={{ 
+                  uri: item.perfume_image_url || 'https://via.placeholder.com/120x150/CCCCCC/FFFFFF?text=No+Image' 
+                }}
+                style={styles.perfumeImage}
+                contentFit="contain"
+              />
+            </View>
+            
+            <View style={styles.perfumeInfo}>
+              <Text style={styles.perfumeName} numberOfLines={2}>
+                {item.perfume_name}
+              </Text>
+              {item.perfume_brand && (
+                <Text style={styles.perfumeBrand} numberOfLines={1}>
+                  {item.perfume_brand}
+                </Text>
+              )}
+              {item.notes && (
+                <Text style={styles.personalNotes} numberOfLines={3}>
+                  Notes: {item.notes}
+                </Text>
+              )}
+            </View>
+          </View>
+        </TouchableOpacity>
+      );
+    }
+    
+    // Show swipeable in normal mode
     return (
-      <TouchableOpacity 
-        style={[
-          styles.perfumeCard,
-          isModifyMode && isSelected && styles.selectedCard
-        ]}
-        onPress={() => {
-          if (isModifyMode) {
-            toggleItemSelection(item.id);
-          } else {
-            handlePerfumePress(item);
-          }
-        }}
-        activeOpacity={0.7}
-      >
-        <View style={styles.cardContent}>
-          <View style={styles.imageContainer}>
-            <Image
-              source={{ 
-                uri: item.perfume_image_url || 'https://via.placeholder.com/120x150/CCCCCC/FFFFFF?text=No+Image' 
-              }}
-              style={styles.perfumeImage}
-              contentFit="contain"
-            />
-          </View>
-          
-          <View style={styles.perfumeInfo}>
-            <Text style={styles.perfumeName} numberOfLines={2}>
-              {item.perfume_name}
-            </Text>
-            {item.perfume_brand && (
-              <Text style={styles.perfumeBrand} numberOfLines={1}>
-                {item.perfume_brand}
+      <Swipeable renderRightActions={renderRightActions(item.id)}>
+        <TouchableOpacity 
+          style={styles.perfumeCard}
+          onPress={() => handlePerfumePress(item)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.cardContent}>
+            <View style={styles.imageContainer}>
+              <Image
+                source={{ 
+                  uri: item.perfume_image_url || 'https://via.placeholder.com/120x150/CCCCCC/FFFFFF?text=No+Image' 
+                }}
+                style={styles.perfumeImage}
+                contentFit="contain"
+              />
+            </View>
+            
+            <View style={styles.perfumeInfo}>
+              <Text style={styles.perfumeName} numberOfLines={2}>
+                {item.perfume_name}
               </Text>
-            )}
-            {item.notes && (
-              <Text style={styles.personalNotes} numberOfLines={3}>
-                Notes: {item.notes}
-              </Text>
-            )}
+              {item.perfume_brand && (
+                <Text style={styles.perfumeBrand} numberOfLines={1}>
+                  {item.perfume_brand}
+                </Text>
+              )}
+              {item.notes && (
+                <Text style={styles.personalNotes} numberOfLines={3}>
+                  Notes: {item.notes}
+                </Text>
+              )}
+            </View>
           </View>
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      </Swipeable>
     );
   };
 
@@ -367,6 +463,14 @@ export default function CollectionDetails({ collectionId, collectionName, onBack
                 returnKeyType="done"
               />
             </View>
+
+            <TouchableOpacity
+              style={styles.deleteCollectionButton}
+              onPress={handleDeleteCollection}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.deleteCollectionText}>🗑️ Delete Collection</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -791,5 +895,44 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#007AFF',
     backgroundColor: 'rgba(0, 122, 255, 0.1)',
+  },
+  deleteCollectionButton: {
+    marginTop: 32,
+    backgroundColor: '#FF3B30',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteCollectionText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  deleteButtonContainer: {
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+    backgroundColor: '#FF3B30',
+    marginBottom: 16,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  deleteButton: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 100,
+    height: '100%',
+  },
+  deleteButtonTouchable: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+  },
+  deleteButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 16,
   },
 });
