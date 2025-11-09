@@ -1,58 +1,28 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useRef } from 'react';
 import { StyleSheet, Text, View, FlatList, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
-import { getRandomPerfumes, searchPerfumes } from './lib/supabase';
+import { useSearch } from './context/SearchContext';
 
 export default function SearchScreen({ onSelectPerfume }) {
-  const [perfumes, setPerfumes] = useState([]);
-  const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searching, setSearching] = useState(false);
+  const {
+    perfumes,
+    results,
+    searchQuery,
+    setSearchQuery,
+    loading,
+    refreshing,
+    searching,
+    error,
+    performSearch,
+    clearSearch,
+    refreshRandom,
+  } = useSearch();
   const debounceRef = useRef(null);
 
-  const loadRandom = useCallback(async () => {
-    try {
-      setError('');
-      const data = await getRandomPerfumes(10);
-      setPerfumes(data);
-    } catch (e) {
-      console.error('Failed to load random perfumes', e);
-      setError('Could not load perfumes. Pull to refresh to try again.');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadRandom();
-  }, [loadRandom]);
-
   const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    loadRandom();
-  }, [loadRandom]);
-
-  const performSearch = useCallback(async (query) => {
-    if (!query || !query.trim()) {
-      setResults([]);
-      setSearching(false);
-      return;
-    }
-    try {
-      setSearching(true);
-      const data = await searchPerfumes(query.trim());
-      setResults(data);
-    } catch (e) {
-      console.error('Search error', e);
-    } finally {
-      setSearching(false);
-    }
-  }, []);
+    refreshRandom();
+  }, [refreshRandom]);
 
   const onChangeSearch = (text) => {
     setSearchQuery(text);
@@ -100,10 +70,17 @@ export default function SearchScreen({ onSelectPerfume }) {
           returnKeyType="search"
         />
         {!!searchQuery && (
-          <TouchableOpacity onPress={() => { setSearchQuery(''); setResults([]); }} style={styles.clearBtn}>
+          <TouchableOpacity onPress={clearSearch} style={styles.clearBtn}>
             <Text style={styles.clearText}>Clear</Text>
           </TouchableOpacity>
         )}
+        <TouchableOpacity
+          onPress={() => (searchQuery ? performSearch(searchQuery) : refreshRandom())}
+          style={styles.refreshBtn}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.refreshText}>{searchQuery ? 'Research' : 'Refresh'}</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Content */}
@@ -173,6 +150,14 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   clearText: {
+    color: '#0a7ea4',
+    fontWeight: '600',
+  },
+  refreshBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  refreshText: {
     color: '#0a7ea4',
     fontWeight: '600',
   },

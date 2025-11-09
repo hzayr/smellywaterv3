@@ -4,6 +4,7 @@ import SearchScreen from './SearchScreen';
 import ProfileScreen from './ProfileScreen';
 import FloatingNavBar from './FloatingNavBar';
 import PerfumeDetails from './PerfumeDetails';
+import { SearchProvider } from './context/SearchContext';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('discover');
@@ -18,19 +19,21 @@ export default function App() {
   };
 
   return (
-    <View style={styles.container}>
-      {selectedPerfumeId ? (
-        <PerfumeDetails
-          perfumeId={selectedPerfumeId}
-          onBack={() => setSelectedPerfumeId(null)}
-        />
-      ) : activeTab === 'discover' ? (
-        <SearchScreen onSelectPerfume={setSelectedPerfumeId} />
-      ) : (
-        <ProfileScreen />
-      )}
-      <FloatingNavBar activeTab={activeTab} onTabChange={handleTabChange} />
-    </View>
+    <SearchProvider>
+      <View style={styles.container}>
+        {selectedPerfumeId ? (
+          <PerfumeDetails
+            perfumeId={selectedPerfumeId}
+            onBack={() => setSelectedPerfumeId(null)}
+          />
+        ) : activeTab === 'discover' ? (
+          <SearchScreen onSelectPerfume={setSelectedPerfumeId} />
+        ) : (
+          <ProfileScreen />
+        )}
+        <FloatingNavBar activeTab={activeTab} onTabChange={handleTabChange} />
+      </View>
+    </SearchProvider>
   );
 }
 
