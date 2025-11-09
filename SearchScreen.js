@@ -4,7 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
 import { getRandomPerfumes, searchPerfumes } from './lib/supabase';
 
-export default function SearchScreen() {
+export default function SearchScreen({ onSelectPerfume }) {
   const [perfumes, setPerfumes] = useState([]);
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -61,7 +61,11 @@ export default function SearchScreen() {
   };
 
   const renderItem = ({ item }) => (
-    <TouchableOpacity activeOpacity={0.8} style={styles.card}>
+    <TouchableOpacity
+      activeOpacity={0.8}
+      style={styles.card}
+      onPress={() => onSelectPerfume && onSelectPerfume(item.id)}
+    >
       <View style={styles.imageWrap}>
         <Image
           source={{ uri: item?.image_url || 'https://via.placeholder.com/200x260/EEEEEE/AAAAAA?text=No+Image' }}
