@@ -351,13 +351,7 @@ export default function ProfileScreen({ onSelectCollection }) {
       </View>
       
       <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-        {isEditMode && (
-          <View style={styles.editModeNotice}>
-            <Text style={styles.editModeNoticeText}>
-              Tap a collection to edit or delete it
-            </Text>
-          </View>
-        )}
+        {/* Banner removed as requested */}
         {/* Collections Grid */}
         <View style={styles.collectionsContainer}>
           <View style={styles.collectionsGrid}>
